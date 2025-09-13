@@ -19,9 +19,10 @@ minimum version: ^3.13
     <arg value="sp"/>
     <!-- rules: https://github.com/PHPCSStandards/PHP_CodeSniffer/blob/master/src/Standards/PSR12/ruleset.xml -->
     <rule ref="PSR12"/>
-    <file>.</file>
+    <file>src/</file>
     <exclude-pattern>*/.git/*</exclude-pattern>
     <exclude-pattern>*/.tests/*</exclude-pattern>
     <exclude-pattern>*/.tools/*</exclude-pattern>
     <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/php/*</exclude-pattern>
 </ruleset>

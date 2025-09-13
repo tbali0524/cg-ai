@@ -16,7 +16,7 @@ by [TBali](https://www.codingame.com/profile/08e6e13d9f7cad047d86ec4d10c77750015
 * edit `.env`, add your OpenAI API key
 * copy your php puzzle solution source files to `php/`, follow the naming convention.
 * add puzzle names (without path and extension) to the config file `.cgtest.cg-ai.php`
-    * use `composer start -- -l` to print directory listing to console
+    * use `composer start -- --list` to print directory listing to console
 * clone [CGTest](https://github.com/tbali0524/cgtest) repo from GitHub
     * copy test cases to `.tests/input/` and `.tests/expected/`
     * add `cgtest` to your path
