@@ -1,0 +1,30 @@
+name: QA on push
+on: [push]
+jobs:
+  analysis:
+    name: code analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: phpcs:3.13, php-cs-fixer:3.87, phpstan:2.1.25
+          coverage: none
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install composer dependencies
+        run: composer install --no-progress --prefer-dist --no-dev
+      - name: Check coding style with phpcs
+        run: |
+          phpcs --version
+          phpcs
+      - name: Check coding style with php-cs-fixer
+        run: php-cs-fixer fix --dry-run --show-progress=dots --diff -vv
+        env:
+          PHP_CS_FIXER_IGNORE_ENV: 1
+      - name: Run static analysis
+        run: |
+          phpstan --version
+          phpstan --verbose --error-format=github

@@ -1,0 +1,75 @@
+{
+    "name": "tbali0524/cg-ai",
+    "description": "Codingame puzzle solution language converter frontend for OpenAI",
+    "type": "project",
+    "keywords": [
+        "codingame",
+        "openai"
+    ],
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "TBali\\CgAi\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "tbali0524",
+            "email": "tbali0524@gmail.com",
+            "homepage": "https://tbali0524.github.io/",
+            "role":     "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "openai-php/client": "^0.16.1",
+        "symfony/http-client": "^7.3",
+        "nyholm/psr7": "^1.8",
+        "guzzlehttp/guzzle": "^7.10",
+        "vlucas/phpdotenv": "^5.6",
+        "league/flysystem": "^3.0"
+    },
+    "scripts": {
+        "start":        "php src/cg-ai.php",
+        "test":         "cgtest --config=.cgtest.cg-ai.my.php --stats",
+        "stats":        "cgtest --config=.cgtest.cg-ai.my.php --dry-run --quiet --stats",
+        "cs" :          "phpcs",
+        "cs-fixer" :    "php-cs-fixer fix --dry-run --show-progress=dots --ansi --diff -vv",
+        "cs-fixer-do" : "php-cs-fixer fix --show-progress=dots --ansi --diff -vv",
+        "lint":         "parallel-lint src",
+        "stan" :        "phpstan --ansi --verbose",
+        "qa" : [
+            "parallel-lint --version",
+            "@lint",
+            "phpcs --version",
+            "@cs",
+            "@cs-fixer",
+            "phpstan --version",
+            "@stan"
+        ],
+        "clean" : [
+            "if exist .tools\\.phpcs.cache          del .tools\\.phpcs.cache",
+            "if exist .tools\\.php-cs-fixer.cache   del .tools\\.php-cs-fixer.cache",
+            "if exist .tools\\phpstan\\              rmdir /S /Q .tools\\phpstan",
+            "cgtest --config=.cgtest.cg-ai.my.php --quiet --clean"
+        ]
+    },
+    "scripts-descriptions": {
+        "start":        "Run CG-AI",
+        "test":         "Run offline tests with cgtest",
+        "stats":        "Show test case statistics with cgtest",
+        "cs":           "Check coding style compliance to PSR12 with phpcs",
+        "cs-fixer":     "Check coding style compliance to PSR12 plus extra rules with php-cs-fixer (no fix applied)",
+        "cs-fixer-do":  "Apply coding style fixes with php-cs-fixer",
+        "stan":         "Run static analysis with phpstan",
+        "lint":         "Check syntax errors with parallel-lint",
+        "qa":           "Run code quality checks: phpcs, php-cs-fixer, phpstan",
+        "clean":        "Delete generated cache and report files in .tools and .tests (Windows only)"
+    },
+    "config": {
+        "process-timeout": 0,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

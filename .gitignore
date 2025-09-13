@@ -1,0 +1,10 @@
+# git config file: exclude these directories from the git repo.
+
+# php package dependencies directory:
+/vendor/
+
+# personal secrets and settings
+.env
+.cgtest.cg-ai.my.php
+
+# /.tools/* is excluded via a separate .gitignore file
