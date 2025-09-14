@@ -37,11 +37,6 @@ $ai_client = \OpenAI::factory()
     ->withHttpClient($httpClient = new HttpClient([]))
     ->make()
 ;
-$solver = new LanguageTransformer($ai_client, $filesystem, $config_file_path, 'php', 'rust');
-if (count($argv) == 1) {
-    $solver->convertAll();
-} elseif (count($argv) == 2 && $argv[1] == '--list') {
-    $solver->printPuzzlesFromDir();
-} else {
-    $solver->printHelp();
-}
+$solver = new LanguageTransformer($ai_client, $filesystem, $config_file_path);
+$success = $solver->cli_run($argv);
+exit($success ? 0 : 1);

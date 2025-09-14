@@ -6,7 +6,7 @@
 
 by [TBali](https://www.codingame.com/profile/08e6e13d9f7cad047d86ec4d10c777500155033)
 
-## Usage
+## Setup
 
 * install `php` and [Composer](https://getcomposer.org/)
 * run `composer install`
@@ -24,7 +24,17 @@ by [TBali](https://www.codingame.com/profile/08e6e13d9f7cad047d86ec4d10c77750015
 * see result in `rust/`
 * clean temporary files with `composer clean`
 
-## Using with different input or output languages
+## CLI usage
 
-* update config file `.cgtest.cg-ai.php`
-* update in `src/cg-ai.php` the line `$solver = new LanguageTransformer(...)`
+```txt
+Usage:
+  php src/cg-ai.php [arguments]
+Arguments:
+  --from=LANG    set input language  [default: php]
+  --to=LANG      set output language [default: rust]
+  --list         generate puzzle names list
+  --test         run cgtest only
+  --help         show this help
+```
+
+* for using non-default languages also update the config file `.cgtest.cg-ai.php`

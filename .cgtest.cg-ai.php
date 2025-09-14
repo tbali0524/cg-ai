@@ -8,12 +8,35 @@ namespace TBali\CGTest;
 
 return [
     'languages' => [
+        // 'c',
+        // 'c++',
+        // 'c#',
+        // 'clojure',
+        // 'd',
+        // 'dart',
+        // 'f#',
+        // 'go',
+        // 'groovy',
+        // 'haskell',
+        // 'java',
+        // 'javascript',
+        // 'kotlin',
+        // 'lua',
+        // 'ocaml',
+        // 'pascal',
+        // 'perl',
         'php',
+        // 'python',
+        // 'ruby',
         'rust',
+        // 'scala',
+        // 'typescript',
+        // 'vb.net',
     ],
     'puzzles' => [
         './' => [
             'medium_com_rubik',
+            // ...add here
         ],
     ],
 ];

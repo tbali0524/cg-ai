@@ -26,18 +26,33 @@ class LanguageTransformer
 {
     public const TITLE = ANSI_GREEN . 'CG-AI' . ANSI_RESET
         . ': Codingame puzzle solution language converter frontend for OpenAI, (c) 2025 by TBali';
-    public const AI_MODEL = 'gpt-5';
+    public const AI_MODEL = 'gpt-5-nano';
     public const DEFAULT_CGTEST_CONFIG_PATH = '.cgtest.cg-ai.php';
     public const EXTENSIONS = [
+        'php' => 'php',
         'rust' => 'rs',
-        'c#' => 'cs',
+        'c' => 'c',
         'c++' => 'cpp',
+        'c#' => 'cs',
+        'clojure' => 'clj',
+        'd' => 'd',
+        'dart' => 'dart',
+        'f#' => 'fsx',
+        'go' => 'go',
+        'groovy' => 'groovy',
         'haskell' => 'hs',
+        'java' => 'java',
         'javascript' => 'js',
         'kotlin' => 'kt',
+        'lua' => 'lua',
+        'ocaml' => 'ml',
+        'pascal' => 'pas',
+        'perl' => 'pl',
         'python' => 'py',
         'ruby' => 'rb',
+        'scala' => 'scala',
         'typescript' => 'ts',
+        'vb.net' => 'vb',
     ];
 
     public function __construct(
@@ -119,15 +134,22 @@ class LanguageTransformer
     public function printHelp(): void
     {
         echo 'Usage:' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php       ' . ANSI_RESET . '    run the code conversions' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php --list' . ANSI_RESET . '    generate puzzle names list' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php --help' . ANSI_RESET . '    show this help' . PHP_EOL . PHP_EOL;
+            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php' . ANSI_RESET . ' [arguments]' . PHP_EOL
+            . 'Arguments:' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: php]' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: rust]' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --list' . ANSI_RESET . '         generate puzzle names list' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --test' . ANSI_RESET . '         run cgtest only' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --help' . ANSI_RESET . '         show this help' . PHP_EOL
+            . 'Supported languages:' . PHP_EOL
+            . '  ' . implode(', ', array_keys(self::EXTENSIONS)) . PHP_EOL
+            . PHP_EOL;
     }
 
     public function hello(): ?string
     {
         $response = $this->aiClient->responses()->create([
-            'model' => 'gpt-4o',
+            'model' => 'gpt-5-nano',
             'input' => 'Hello!',
         ]);
         return $response->outputText;
@@ -157,7 +179,8 @@ class LanguageTransformer
             return false;
         }
         if (!$file_exists) {
-            echo WARN_TAG . 'Missing input file, skipping puzzle: ' . ANSI_YELLOW . $puzzle . ANSI_RESET . PHP_EOL;
+            echo WARN_TAG . 'Missing input file, skipped: '
+                . ANSI_YELLOW . $puzzle . ANSI_RESET . PHP_EOL;
             return false;
         }
         $output_file_path = $this->getOutputPath($puzzle);
@@ -168,7 +191,7 @@ class LanguageTransformer
             return false;
         }
         if ($file_exists) {
-            echo WARN_TAG . 'Output file already exists, skipping puzzle (delete file to re-generate): '
+            echo WARN_TAG . 'Output file already exists, skipped: '
                 . ANSI_YELLOW . $puzzle . ANSI_RESET . PHP_EOL;
             return false;
         }
@@ -180,11 +203,20 @@ class LanguageTransformer
         }
         $prompt = 'Convert following ' . $this->fromLanguage . ' code to ' . $this->toLanguage
             . ', output only the code:' . PHP_EOL;
-        echo "[INFO] Calling OpenAI to convert puzzle solution: {$puzzle} ... ";
-        $response = $this->aiClient->responses()->create([
-            'model' => self::AI_MODEL,
-            'input' => $prompt . $input_file_contents,
-        ]);
+        echo '[INFO] Calling OpenAI to convert the code: '
+            . ANSI_LIGHT_CYAN . $puzzle . ANSI_RESET . ' ...';
+        if (strlen($puzzle) < 40) {
+            echo str_repeat('.', 40 - strlen($puzzle));
+        }
+        try {
+            $response = $this->aiClient->responses()->create([
+                'model' => self::AI_MODEL,
+                'input' => $prompt . $input_file_contents,
+            ]);
+        } catch (\Exception $exception) {
+            echo PHP_EOL . ERROR_TAG . ' OpenAI call threw an exception' . PHP_EOL;
+            return false;
+        }
         if (is_null($response->outputText)) {
             echo PHP_EOL . ERROR_TAG . ' OpenAI call returned error' . PHP_EOL;
             return false;
@@ -195,26 +227,24 @@ class LanguageTransformer
             echo PHP_EOL . ERROR_TAG . 'Cannot write output file: ' . $output_file_path . PHP_EOL;
             return false;
         }
-        echo ANSI_GREEN_INV . '[OK]' . ANSI_RESET . PHP_EOL;
+        echo ' ' . ANSI_GREEN_INV . '[OK]' . ANSI_RESET . PHP_EOL;
         return true;
     }
 
-    public function testSolutions(): void
+    public function testSolutions(): bool
     {
         echo '[INFO] Testing all AI-generated conversions with CGTest...' . PHP_EOL;
         $command = 'cgtest --config=' . $this->configFilePath . ' --stats --lang=' . $this->toLanguage;
-        $execOutput = [];
         $execResultCode = 0;
-        $execResult = exec($command, $execOutput, $execResultCode);
-        foreach ($execOutput as $line) {
-            echo $line, PHP_EOL;
-        }
+        $execResult = system($command, $execResultCode);
         if (($execResult === false) or ($execResultCode != 0)) {
-            echo ERROR_TAG . 'Some tests failed' . PHP_EOL;
+            echo ERROR_TAG . 'CGTest returned error' . PHP_EOL . PHP_EOL;
+            return false;
         }
+        return true;
     }
 
-    public function convertAll(): void
+    public function convertAll(): bool
     {
         $puzzles = $this->readPuzzleList();
         if (count($puzzles) > 0) {
@@ -230,21 +260,107 @@ class LanguageTransformer
                 ++$count_converted;
             }
         }
-        echo '[INFO] Converted ' . ANSI_LIGHT_CYAN . $count_converted . ANSI_RESET
-            . ', skipped ' . ANSI_LIGHT_CYAN . (count($puzzles) - $count_converted) . ANSI_RESET
-            . ' puzzle solutions' . PHP_EOL . PHP_EOL;
-        if ($count_converted > 0) {
-            $this->testSolutions();
+        echo '[INFO] Converted ' . ANSI_LIGHT_CYAN . $count_converted . ANSI_RESET;
+        if (count($puzzles) != $count_converted) {
+            echo ', skipped ' . ANSI_LIGHT_CYAN . (count($puzzles) - $count_converted) . ANSI_RESET;
         }
+        echo ' puzzle solutions' . PHP_EOL . PHP_EOL;
+        if ($count_converted > 0) {
+            return $this->testSolutions();
+        }
+        return true;
     }
 
-    private function getInputPath(string $puzzle): string
+    /**
+     * @param array<int, string> $cli_arguments
+     */
+    public function cli_run(array $cli_arguments): bool
+    {
+        $from_changed = false;
+        $to_changed = false;
+        $list = false;
+        $help = false;
+        $test = false;
+        $invalid = false;
+        for ($i = 1; $i < count($cli_arguments); ++$i) {
+            if (str_starts_with($cli_arguments[$i], '--from=')) {
+                if ($from_changed) {
+                    echo ERROR_TAG . 'Multiple --from arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $from_changed = true;
+                $this->fromLanguage = substr($cli_arguments[$i], 7);
+                if (!isset(self::EXTENSIONS[$this->fromLanguage])) {
+                    echo ERROR_TAG . 'Unsupported language in --from argument' . PHP_EOL;
+                    $invalid = true;
+                }
+                continue;
+            }
+            if (str_starts_with($cli_arguments[$i], '--to=')) {
+                if ($to_changed) {
+                    echo ERROR_TAG . 'Multiple --to arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $to_changed = true;
+                $this->toLanguage = substr($cli_arguments[$i], 5);
+                if (!isset(self::EXTENSIONS[$this->toLanguage])) {
+                    echo ERROR_TAG . 'Unsupported language in --to argument' . PHP_EOL;
+                    $invalid = true;
+                }
+                continue;
+            }
+            if ($cli_arguments[$i] == '--help') {
+                if ($help) {
+                    echo ERROR_TAG . 'Multiple --help arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $help = true;
+                continue;
+            }
+            if ($cli_arguments[$i] == '--list') {
+                if ($list) {
+                    echo ERROR_TAG . 'Multiple --list arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $list = true;
+                continue;
+            }
+            if ($cli_arguments[$i] == '--test') {
+                if ($test) {
+                    echo ERROR_TAG . 'Multiple --test arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $test = true;
+                continue;
+            }
+            echo ERROR_TAG . 'Invalid argument: ' . ANSI_YELLOW . $cli_arguments[$i] . ANSI_RESET . PHP_EOL;
+            $invalid = true;
+        }
+        if (($help && ($list || $test)) || ($list && ($help || $test)) || ($test && ($help || $list))) {
+            echo ERROR_TAG . '--help, --list, --test arguments must be exclusive' . PHP_EOL;
+            $invalid = true;
+        }
+        if ($invalid || $help) {
+            $this->printHelp();
+            return !$invalid;
+        }
+        if ($list) {
+            $this->printPuzzlesFromDir();
+            return true;
+        }
+        if ($test) {
+            return $this->testSolutions();
+        }
+        return $this->convertAll();
+    }
+
+    public function getInputPath(string $puzzle): string
     {
         return $this->fromLanguage . '/' . $puzzle
             . '.' . (self::EXTENSIONS[$this->fromLanguage] ?? $this->fromLanguage);
     }
 
-    private function getOutputPath(string $puzzle): string
+    public function getOutputPath(string $puzzle): string
     {
         return $this->toLanguage . '/' . $puzzle
             . '.' . (self::EXTENSIONS[$this->toLanguage] ?? $this->toLanguage);
