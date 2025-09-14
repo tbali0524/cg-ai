@@ -22,15 +22,13 @@ const ANSI_RESET = "\e[0m";
 const ERROR_TAG = ANSI_RED_INV . '[ERROR]' . ANSI_RESET . ' ';
 const WARN_TAG = ANSI_YELLOW_INV . '[WARN]' . ANSI_RESET . ' ';
 
-class LanguageTransformer
+final class LanguageTransformer
 {
     public const TITLE = ANSI_GREEN . 'CG-AI' . ANSI_RESET
         . ': Codingame puzzle solution language converter frontend for OpenAI, (c) 2025 by TBali';
-    public const AI_MODEL = 'gpt-5-nano';
+    public const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
     public const DEFAULT_CGTEST_CONFIG_PATH = '.cgtest.cg-ai.php';
     public const EXTENSIONS = [
-        'php' => 'php',
-        'rust' => 'rs',
         'c' => 'c',
         'c++' => 'cpp',
         'c#' => 'cs',
@@ -48,17 +46,23 @@ class LanguageTransformer
         'ocaml' => 'ml',
         'pascal' => 'pas',
         'perl' => 'pl',
+        'php' => 'php',
         'python' => 'py',
         'ruby' => 'rb',
+        'rust' => 'rs',
         'scala' => 'scala',
         'typescript' => 'ts',
         'vb.net' => 'vb',
     ];
 
+    private int $inputTokens = 0;
+    private int $outputTokens = 0;
+
     public function __construct(
         private Client $aiClient,
         private Filesystem $filesystem,
-        private string $configFilePath,
+        private string $configFilePath = self::DEFAULT_CGTEST_CONFIG_PATH,
+        private string $openaiModel = self::DEFAULT_OPENAI_MODEL,
         private string $fromLanguage = 'php',
         private string $toLanguage = 'rust',
     ) {
@@ -73,11 +77,13 @@ class LanguageTransformer
         try {
             $file_exists = $this->filesystem->fileExists($cgtest_config_path);
         } catch (FilesystemException | UnableToCheckExistence $exception) {
-            echo ERROR_TAG . 'Cannot check if file exists: ' . $cgtest_config_path . PHP_EOL;
+            echo ERROR_TAG . 'Cannot check if file exists: '
+                . ANSI_YELLOW . $cgtest_config_path . ANSI_RESET . PHP_EOL;
             return [];
         }
         if (!$file_exists) {
-            echo ERROR_TAG . 'Cannot open config file: ' . $cgtest_config_path . PHP_EOL;
+            echo ERROR_TAG . 'Cannot open config file: '
+                . ANSI_YELLOW . $cgtest_config_path . ANSI_RESET . PHP_EOL;
             return [];
         }
         echo '[INFO] Reading puzzle list from config file: '
@@ -88,7 +94,8 @@ class LanguageTransformer
             || !isset($cgtest_config['puzzles'])
             || !is_array($cgtest_config['puzzles'])
         ) {
-            echo ERROR_TAG . 'Invalid config file' . PHP_EOL;
+            echo ERROR_TAG . 'Invalid config file: '
+                . ANSI_YELLOW . $cgtest_config_path . ANSI_RESET . PHP_EOL;
             return [];
         }
         $puzzles = [];
@@ -99,51 +106,6 @@ class LanguageTransformer
         }
         // @phpstan-ignore-next-line return.type
         return array_unique($puzzles);
-    }
-
-    public function printPuzzlesFromDir(): void
-    {
-        $all_paths = $this->filesystem->listContents('/' . $this->fromLanguage . '/')
-            ->filter(static fn (StorageAttributes $attributes) => $attributes->isFile())
-            ->sortByPath()
-            ->map(static fn (StorageAttributes $attributes) => $attributes->path())
-            ->toArray()
-        ;
-        echo 'List of puzzle solutions found in the ' . ANSI_LIGHT_CYAN . $this->fromLanguage . '/' . ANSI_RESET
-            . ' directory:' . PHP_EOL . PHP_EOL;
-        $prefix = $this->fromLanguage . '/';
-        $postfix = '.' . (self::EXTENSIONS[$this->fromLanguage] ?? $this->fromLanguage);
-        $count = 0;
-        foreach ($all_paths as $path) {
-            $puzzle = $path;
-            if (str_starts_with($puzzle, $prefix)) {
-                $puzzle = substr($puzzle, strlen($prefix));
-            }
-            if (str_ends_with($puzzle, $postfix)) {
-                $puzzle = substr($puzzle, 0, -strlen($postfix));
-            }
-            if ($puzzle == '.gitignore') {
-                continue;
-            }
-            ++$count;
-            echo "            '{$puzzle}'," . PHP_EOL;
-        }
-        echo PHP_EOL . '[INFO] Found ' . ANSI_LIGHT_CYAN . $count . ANSI_RESET . ' puzzle solutions' . PHP_EOL;
-    }
-
-    public function printHelp(): void
-    {
-        echo 'Usage:' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php' . ANSI_RESET . ' [arguments]' . PHP_EOL
-            . 'Arguments:' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: php]' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: rust]' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --list' . ANSI_RESET . '         generate puzzle names list' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --test' . ANSI_RESET . '         run cgtest only' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --help' . ANSI_RESET . '         show this help' . PHP_EOL
-            . 'Supported languages:' . PHP_EOL
-            . '  ' . implode(', ', array_keys(self::EXTENSIONS)) . PHP_EOL
-            . PHP_EOL;
     }
 
     public function hello(): ?string
@@ -175,7 +137,8 @@ class LanguageTransformer
         try {
             $file_exists = $this->filesystem->fileExists($input_file_path);
         } catch (FilesystemException | UnableToCheckExistence $exception) {
-            echo ERROR_TAG . 'Cannot check if file exists: ' . $input_file_path . PHP_EOL;
+            echo ERROR_TAG . 'Cannot check if file exists: '
+                . ANSI_YELLOW . $input_file_path . ANSI_RESET . PHP_EOL;
             return false;
         }
         if (!$file_exists) {
@@ -187,7 +150,8 @@ class LanguageTransformer
         try {
             $file_exists = $this->filesystem->fileExists($output_file_path);
         } catch (FilesystemException | UnableToCheckExistence $exception) {
-            echo ERROR_TAG . 'Cannot check if file exists: ' . $output_file_path . PHP_EOL;
+            echo ERROR_TAG . 'Cannot check if file exists: '
+                . ANSI_YELLOW . $output_file_path . ANSI_RESET . PHP_EOL;
             return false;
         }
         if ($file_exists) {
@@ -198,11 +162,15 @@ class LanguageTransformer
         try {
             $input_file_contents = $this->filesystem->read($input_file_path);
         } catch (FilesystemException | UnableToReadFile $exception) {
-            echo ERROR_TAG . 'Cannot read input file: ' . $input_file_path . PHP_EOL;
+            echo ERROR_TAG . 'Cannot read input file: '
+                . ANSI_YELLOW . $input_file_path . ANSI_RESET . PHP_EOL;
             return false;
         }
         $prompt = 'Convert following ' . $this->fromLanguage . ' code to ' . $this->toLanguage
-            . ', output only the code:' . PHP_EOL;
+            . ', output only the code.' . PHP_EOL;
+        if ($this->toLanguage == 'php') {
+            $prompt .= ' Use only PHP v7.3 syntax.' . PHP_EOL;
+        }
         echo '[INFO] Calling OpenAI to convert the code: '
             . ANSI_LIGHT_CYAN . $puzzle . ANSI_RESET . ' ...';
         if (strlen($puzzle) < 40) {
@@ -210,21 +178,22 @@ class LanguageTransformer
         }
         try {
             $response = $this->aiClient->responses()->create([
-                'model' => self::AI_MODEL,
+                'model' => $this->openaiModel,
                 'input' => $prompt . $input_file_contents,
             ]);
         } catch (\Exception $exception) {
-            echo PHP_EOL . ERROR_TAG . ' OpenAI call threw an exception' . PHP_EOL;
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'OpenAI call threw an exception.' . PHP_EOL;
             return false;
         }
         if (is_null($response->outputText)) {
-            echo PHP_EOL . ERROR_TAG . ' OpenAI call returned error' . PHP_EOL;
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'OpenAI call returned error.' . PHP_EOL;
             return false;
         }
         try {
             $this->filesystem->write($output_file_path, $response->outputText);
         } catch (FilesystemException | UnableToWriteFile $exception) {
-            echo PHP_EOL . ERROR_TAG . 'Cannot write output file: ' . $output_file_path . PHP_EOL;
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'Cannot write output file: '
+                . ANSI_YELLOW . $output_file_path . ANSI_RESET . PHP_EOL;
             return false;
         }
         echo ' ' . ANSI_GREEN_INV . '[OK]' . ANSI_RESET . PHP_EOL;
@@ -233,7 +202,7 @@ class LanguageTransformer
 
     public function testSolutions(): bool
     {
-        echo '[INFO] Testing all AI-generated conversions with CGTest...' . PHP_EOL;
+        echo '[INFO] Testing all AI-generated conversions with CGTest...' . PHP_EOL . PHP_EOL;
         $command = 'cgtest --config=' . $this->configFilePath . ' --stats --lang=' . $this->toLanguage;
         $execResultCode = 0;
         $execResult = system($command, $execResultCode);
@@ -246,13 +215,20 @@ class LanguageTransformer
 
     public function convertAll(): bool
     {
+        try {
+            $response = $this->aiClient->models()->retrieve($this->openaiModel);
+        } catch (\Exception $exception) {
+            echo ERROR_TAG . 'Unsupported OpenAI model: '
+                . ANSI_YELLOW . $this->openaiModel . ANSI_RESET . PHP_EOL . PHP_EOL;
+            return false;
+        }
         $puzzles = $this->readPuzzleList();
         if (count($puzzles) > 0) {
-            echo '[INFO] Processing ' . ANSI_LIGHT_CYAN . count($puzzles) . ANSI_RESET
-                . ' puzzle solutions' . PHP_EOL;
+            echo '[INFO] Processing ' . ANSI_LIGHT_CYAN . count($puzzles) . ANSI_RESET . ' puzzle solution'
+                . (count($puzzles) > 1 ? 's' : '') . '.' . PHP_EOL;
             echo '[INFO] Converting ' . ANSI_LIGHT_CYAN . $this->fromLanguage . ANSI_RESET
                 . ' code to ' . ANSI_LIGHT_CYAN . $this->toLanguage . ANSI_RESET
-                . ' using OpenAI model ' . ANSI_LIGHT_CYAN . self::AI_MODEL . ANSI_RESET . PHP_EOL;
+                . ', using OpenAI model: ' . ANSI_LIGHT_CYAN . $this->openaiModel . ANSI_RESET . PHP_EOL;
         }
         $count_converted = 0;
         foreach ($puzzles as $puzzle) {
@@ -264,17 +240,20 @@ class LanguageTransformer
         if (count($puzzles) != $count_converted) {
             echo ', skipped ' . ANSI_LIGHT_CYAN . (count($puzzles) - $count_converted) . ANSI_RESET;
         }
-        echo ' puzzle solutions' . PHP_EOL . PHP_EOL;
+        echo ' puzzle solution' . (count($puzzles) > 1 ? 's' : '') . '.' . PHP_EOL;
         if ($count_converted > 0) {
+            echo '[INFO] Used ' . ANSI_LIGHT_CYAN . $this->inputTokens . ANSI_RESET . ' input and '
+                . ANSI_LIGHT_CYAN . $this->outputTokens . ANSI_RESET . ' output tokens.' . PHP_EOL;
             return $this->testSolutions();
         }
+        echo PHP_EOL;
         return true;
     }
 
     /**
      * @param array<int, string> $cli_arguments
      */
-    public function cli_run(array $cli_arguments): bool
+    public function cliRun(array $cli_arguments): bool
     {
         $from_changed = false;
         $to_changed = false;
@@ -340,9 +319,14 @@ class LanguageTransformer
             echo ERROR_TAG . '--help, --list, --test arguments must be exclusive' . PHP_EOL;
             $invalid = true;
         }
-        if ($invalid || $help) {
+        if ($invalid) {
+            echo PHP_EOL;
             $this->printHelp();
-            return !$invalid;
+            return false;
+        }
+        if ($help) {
+            $this->printHelp();
+            return true;
         }
         if ($list) {
             $this->printPuzzlesFromDir();
@@ -364,5 +348,52 @@ class LanguageTransformer
     {
         return $this->toLanguage . '/' . $puzzle
             . '.' . (self::EXTENSIONS[$this->toLanguage] ?? $this->toLanguage);
+    }
+
+    private function printPuzzlesFromDir(): void
+    {
+        $all_paths = $this->filesystem->listContents('/' . $this->fromLanguage . '/')
+            ->filter(static fn (StorageAttributes $attributes) => $attributes->isFile())
+            ->sortByPath()
+            ->map(static fn (StorageAttributes $attributes) => $attributes->path())
+            ->toArray()
+        ;
+        echo 'List of puzzle solutions found in the ' . ANSI_LIGHT_CYAN . $this->fromLanguage . '/' . ANSI_RESET
+            . ' directory:' . PHP_EOL . PHP_EOL;
+        $prefix = $this->fromLanguage . '/';
+        $postfix = '.' . (self::EXTENSIONS[$this->fromLanguage] ?? $this->fromLanguage);
+        $count = 0;
+        foreach ($all_paths as $path) {
+            $puzzle = $path;
+            if (str_starts_with($puzzle, $prefix)) {
+                $puzzle = substr($puzzle, strlen($prefix));
+            }
+            if (str_ends_with($puzzle, $postfix)) {
+                $puzzle = substr($puzzle, 0, -strlen($postfix));
+            }
+            if ($puzzle == '.gitignore') {
+                continue;
+            }
+            ++$count;
+            echo "            '{$puzzle}'," . PHP_EOL;
+        }
+        echo PHP_EOL . '[INFO] Found ' . ANSI_LIGHT_CYAN . $count . ANSI_RESET . ' puzzle solutions.' . PHP_EOL
+            . PHP_EOL;
+    }
+
+    private function printHelp(): void
+    {
+        echo 'Usage:' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  php src/cg-ai.php' . ANSI_RESET . ' [arguments]' . PHP_EOL
+            . 'Arguments:' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: php]' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: rust]' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --list' . ANSI_RESET . '         generate puzzle names list' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --test' . ANSI_RESET . '         run cgtest only' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --help' . ANSI_RESET . '         show this help' . PHP_EOL
+            . 'Supported languages:' . PHP_EOL
+            . '  ' . implode(', ', array_slice(array_keys(self::EXTENSIONS), 0, 14)) . PHP_EOL
+            . '  ' . implode(', ', array_slice(array_keys(self::EXTENSIONS), 14)) . PHP_EOL
+            . PHP_EOL;
     }
 }
