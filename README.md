@@ -34,6 +34,7 @@ Arguments:
   --to=LANG      set output language [default: rust]
   --list         generate puzzle names list
   --test         run cgtest only
+  --submit       submit generated solutions to Codingamge [WIP, NOT WORKING]
   --help         show this help
 ```
 

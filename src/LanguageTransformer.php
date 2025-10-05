@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace TBali\CgAi;
 
+use GuzzleHttp\Client as HttpClient;
+use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Psr7;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\StorageAttributes;
@@ -61,6 +65,9 @@ final class LanguageTransformer
     public function __construct(
         private Client $aiClient,
         private Filesystem $filesystem,
+        private HttpClient $httpClient,
+        private string $cgSession,
+        private string $cgUserid,
         private string $configFilePath = self::DEFAULT_CGTEST_CONFIG_PATH,
         private string $openaiModel = self::DEFAULT_OPENAI_MODEL,
         private string $fromLanguage = 'php',
@@ -213,6 +220,155 @@ final class LanguageTransformer
         return true;
     }
 
+    public function submitSolution(string $puzzle): bool
+    {
+        $output_file_path = $this->getOutputPath($puzzle);
+        try {
+            $input_file_contents = $this->filesystem->read($output_file_path);
+        } catch (FilesystemException | UnableToReadFile $exception) {
+            echo ERROR_TAG . 'Cannot read generated solution file: '
+                . ANSI_YELLOW . $output_file_path . ANSI_RESET . PHP_EOL;
+            return false;
+        }
+        echo '[INFO] Submitting code: '
+            . ANSI_LIGHT_CYAN . $puzzle . ANSI_RESET . ' ...';
+        if (strlen($puzzle) < 40) {
+            echo str_repeat('.', 40 - strlen($puzzle));
+        }
+        $jar = CookieJar::fromArray(
+            [
+                'cgSession' => $this->cgSession,
+                'godfatherId' => $this->cgUserid,
+            ],
+            'https://www.codingame.com',
+        );
+        // CALL 1
+        echo '[1] ';
+        try {
+            $response = $this->httpClient->request(
+                'POST',
+                'https://www.codingame.com/services/Puzzle/generateSessionFromPuzzlePrettyId',
+                [
+                    'headers' => [
+                        'Accept' => 'application/json, text/plain, */*',
+                        'Content-Type' => 'application/json;charset=UTF-8',
+                    ],
+                    'body' => '[' . $this->cgUserid . ', "' . $puzzle . '", false]',
+                    'cookies' => $jar,
+                ]
+            );
+        } catch (ClientException $e) {
+            echo ERROR_TAG . PHP_EOL;
+            echo Psr7\Message::toString($e->getRequest());
+            echo Psr7\Message::toString($e->getResponse());
+            return false;
+        }
+        $code = $response->getStatusCode();
+        if ($code != 200) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [1] returned error: ' . PHP_EOL
+                . $response->getReasonPhrase() . PHP_EOL;
+            return false;
+        }
+        $body = strval($response->getBody());
+        $json = json_decode($body);
+        // @phpstan-ignore property.nonObject
+        if (!isset($json->handle)) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [1] returned invalid answer: ' . PHP_EOL . $body . PHP_EOL;
+            return false;
+        }
+        // @phpstan-ignore cast.string
+        $handle = (string) $json->handle;
+        // CALL 2
+        echo '[2] ';
+        try {
+            $response = $this->httpClient->request(
+                'POST',
+                'https://www.codingame.com/services/TestSession/submit',
+                [
+                    'headers' => [
+                        'Accept' => 'application/json, text/plain, */*',
+                        'Content-Type' => 'application/json;charset=UTF-8',
+                        'Referer' => 'https://www.codingame.com/ide/puzzle/' . $puzzle,
+                    ],
+                    'body' => '["' . $handle . '", {'
+                        . '"code":"' . $input_file_contents . '",'
+                        . '"programmingLanguageId":"' . $this->toLanguage . '"},null]',
+                    'cookies' => $jar,
+                ]
+            );
+        } catch (ClientException $e) {
+            echo ERROR_TAG . PHP_EOL;
+            echo Psr7\Message::toString($e->getRequest());
+            echo Psr7\Message::toString($e->getResponse());
+            return false;
+        }
+        $code = $response->getStatusCode();
+        if ($code != 200) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [2] returned error: ' . PHP_EOL
+                . $response->getReasonPhrase() . PHP_EOL;
+            return false;
+        }
+        $report_handle = (string) $response->getBody();
+        if (!is_numeric($report_handle)) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [2] returned invalid answer: ' . PHP_EOL
+                . $report_handle . PHP_EOL;
+            return false;
+        }
+        // CALL 3
+        echo '[3] ';
+        sleep(3);
+        try {
+            $response = $this->httpClient->request(
+                'POST',
+                'https://www.codingame.com/services/Report/findReportBySubmission',
+                [
+                    'headers' => [
+                        'Accept' => 'application/json, text/plain, */*',
+                        'Content-Type' => 'application/json;charset=UTF-8',
+                        'Referer' => 'https://www.codingame.com/ide/puzzle/' . $puzzle,
+                    ],
+                    'body' => '[' . $report_handle . ']',
+                    'cookies' => $jar,
+                ]
+            );
+        } catch (ClientException $e) {
+            echo ERROR_TAG . PHP_EOL;
+            echo Psr7\Message::toString($e->getRequest());
+            echo Psr7\Message::toString($e->getResponse());
+            return false;
+        }
+        $code = $response->getStatusCode();
+        if ($code != 200) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [3] returned error: ' . PHP_EOL
+                . $response->getReasonPhrase() . PHP_EOL;
+            return false;
+        }
+        $body = (string) $response->getBody();
+        $json = json_decode($body);
+        // @phpstan-ignore property.nonObject
+        if (!isset($json->score)) {
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'call [3] returned invalid answer: ' . PHP_EOL . $body . PHP_EOL;
+            return false;
+        }
+        // @phpstan-ignore cast.double
+        $score = (float) $json->score;
+        if ($score != 100.0) {
+            echo WARN_TAG . PHP_EOL . WARN_TAG . 'Code submitted successfully but some validators failed.' . PHP_EOL;
+            return false;
+        }
+        echo ' ' . ANSI_GREEN_INV . '[OK]' . ANSI_RESET . PHP_EOL;
+        return true;
+    }
+
+    public function submitSolutions(): bool
+    {
+        echo '[INFO] Submitting ' . ANSI_LIGHT_CYAN . $this->toLanguage . ANSI_RESET
+            . ' solutions to Codingame...' . PHP_EOL;
+        // ...
+        $this->submitSolution('easy_com_seeing-squares');
+        return true;
+    }
+
     public function convertAll(): bool
     {
         try {
@@ -260,6 +416,7 @@ final class LanguageTransformer
         $list = false;
         $help = false;
         $test = false;
+        $submit = false;
         $invalid = false;
         for ($i = 1; $i < count($cli_arguments); ++$i) {
             if (str_starts_with($cli_arguments[$i], '--from=')) {
@@ -312,11 +469,24 @@ final class LanguageTransformer
                 $test = true;
                 continue;
             }
+            if ($cli_arguments[$i] == '--submit') {
+                if ($submit) {
+                    echo ERROR_TAG . 'Multiple --submit arguments' . PHP_EOL;
+                    $invalid = true;
+                }
+                $submit = true;
+                continue;
+            }
             echo ERROR_TAG . 'Invalid argument: ' . ANSI_YELLOW . $cli_arguments[$i] . ANSI_RESET . PHP_EOL;
             $invalid = true;
         }
-        if (($help && ($list || $test)) || ($list && ($help || $test)) || ($test && ($help || $list))) {
-            echo ERROR_TAG . '--help, --list, --test arguments must be exclusive' . PHP_EOL;
+        if (
+            ($help && ($list || $test || $submit))
+            || ($list && ($help || $test || $submit))
+            || ($test && ($help || $list || $submit))
+            || ($submit && ($help || $list || $test))
+        ) {
+            echo ERROR_TAG . '--help, --list, --test, --submit arguments must be exclusive' . PHP_EOL;
             $invalid = true;
         }
         if ($invalid) {
@@ -334,6 +504,9 @@ final class LanguageTransformer
         }
         if ($test) {
             return $this->testSolutions();
+        }
+        if ($submit) {
+            return $this->submitSolutions();
         }
         return $this->convertAll();
     }
@@ -389,6 +562,7 @@ final class LanguageTransformer
             . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: php]' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: rust]' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --list' . ANSI_RESET . '         generate puzzle names list' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --submit' . ANSI_RESET . '       submit puzzle solutions to CG site' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --test' . ANSI_RESET . '         run cgtest only' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --help' . ANSI_RESET . '         show this help' . PHP_EOL
             . 'Supported languages:' . PHP_EOL

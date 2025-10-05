@@ -25,6 +25,16 @@ if ($openai_api_key === false || $openai_api_key == 'your_api_key_here') {
     echo ERROR_TAG . 'Missing OPENAI_API_KEY' . PHP_EOL;
     exit(1);
 }
+$cg_session = getenv('CG_SESSION');
+if ($cg_session === false || $cg_session == 'your_cg_session_id_here') {
+    echo ERROR_TAG . 'Missing CG_SESSION' . PHP_EOL;
+    exit(1);
+}
+$cg_userid = getenv('CG_USERID');
+if ($cg_userid === false || $cg_session == 'your_cg_user_id_here') {
+    echo ERROR_TAG . 'Missing CG_USERID' . PHP_EOL;
+    exit(1);
+}
 $config_file_path = getenv('CGTEST_CONFIG');
 if ($config_file_path === false) {
     $config_file_path = LanguageTransformer::DEFAULT_CGTEST_CONFIG_PATH;
@@ -35,12 +45,21 @@ if ($openai_model === false) {
 }
 $filesystem_adapter = new LocalFilesystemAdapter(__DIR__ . '/../');
 $filesystem = new Filesystem($filesystem_adapter);
+$http_client = new HttpClient([]);
 // $ai_client = OpenAI::client($openai_api_key);
 $ai_client = \OpenAI::factory()
     ->withApiKey($openai_api_key)
-    ->withHttpClient($httpClient = new HttpClient([]))
+    ->withHttpClient($http_client)
     ->make()
 ;
-$solver = new LanguageTransformer($ai_client, $filesystem, $config_file_path, $openai_model);
+$solver = new LanguageTransformer(
+    $ai_client,
+    $filesystem,
+    $http_client,
+    $cg_session,
+    $cg_userid,
+    $config_file_path,
+    $openai_model
+);
 $success = $solver->cliRun($argv);
 exit($success ? 0 : 1);
