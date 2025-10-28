@@ -6,6 +6,13 @@
 
 by [TBali](https://www.codingame.com/profile/08e6e13d9f7cad047d86ec4d10c777500155033)
 
+## About
+
+This is a simple tool I used for an AI experiment. I checked how good are current LLMs (e.g. gpt-5) to convert code from one programming language to another. I used it to convert my existing, manual Codingame puzzle solutions in PHP to Rust.
+It uses OpenAI REST API for the conversion and my other CG-related tool for local testing of the results.
+
+Note: the tool does not send the puzzle statement as part of the prompt, only the original solution source code.
+
 ## Setup
 
 * install `php` and [Composer](https://getcomposer.org/)
@@ -34,8 +41,41 @@ Arguments:
   --to=LANG      set output language [default: rust]
   --list         generate puzzle names list
   --test         run cgtest only
-  --submit       submit generated solutions to Codingamge [WIP, NOT WORKING]
+  --submit       submit generated solutions to Codingame [WIP, NOT WORKING]
   --help         show this help
 ```
 
 * for using non-default languages also update the config file `.cgtest.cg-ai.php`
+
+## My own usage experience
+
+Results of using the tool to AI-translate my own puzzle solutions (originally written manually in PHP) to Rust:
+
+* easy puzzles
+    * success rate with `gpt-5`: ~95%
+* medium puzzles
+    * success rate with `gpt-5-mini`: ~90%
+* hard puzzles
+    * success rate with `gpt-5-mini`: ~80%
+    * success rate with `gpt-5`: additional +10%
+* expert puzzles
+    * success rate with `gpt-5`: ~80%
+
+* Totals
+    * translation attempts: 841
+    * successful: 776
+    * with build failure: 42
+    * with partial test failure: 23
+        * most test failures could be fixed manually by small changes.
+
+* overall success rate (after some manual fixes): ~93%
+
+## Internal note
+
+TODO: What is the correct way to submit a puzzle solution to Codingame without using the UI, through API? What I tried but still not working:
+
+* (1) Sending POST to `https://www.codingame.com/services/Puzzle/generateSessionFromPuzzlePrettyId` with request body `[my-numeric-userid, "puzzle-name", false]`, and with cookies `cgSession` and `godfatherId` set. The response should have a `handle` element to use in next step.
+* (2) Sending POST to `https://www.codingame.com/services/TestSession/submit` with request body `["handle", {"code": "my-source-code", "programmingLanguageId": "python-or-whatever"}, null]`. Response should be a _report-id_ for next step.
+* (3) Sending POST to `https://www.codingame.com/services/Report/findReportBySubmission` with request body `[ report-id ]`. Response should be a JSON with a `score` element in it if the validation finished, and a different object if still in progress.
+
+However at step (1) I receive a 200 OK response with the string `null` as response.

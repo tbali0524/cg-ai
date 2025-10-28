@@ -178,7 +178,9 @@ final class LanguageTransformer
         if ($this->toLanguage == 'php') {
             $prompt .= ' Use only PHP v7.3 syntax.' . PHP_EOL;
         }
-        echo '[INFO] Calling OpenAI to convert the code: '
+        echo '[INFO] Calling '
+            . ANSI_LIGHT_CYAN . 'OpenAI' . ANSI_RESET
+            . ' to convert the code: '
             . ANSI_LIGHT_CYAN . $puzzle . ANSI_RESET . ' ...';
         if (strlen($puzzle) < 40) {
             echo str_repeat('.', 40 - strlen($puzzle));
@@ -189,11 +191,11 @@ final class LanguageTransformer
                 'input' => $prompt . $input_file_contents,
             ]);
         } catch (\Exception $exception) {
-            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'OpenAI call threw an exception.' . PHP_EOL;
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'LLM API call threw an exception.' . PHP_EOL;
             return false;
         }
         if (is_null($response->outputText)) {
-            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'OpenAI call returned error.' . PHP_EOL;
+            echo ERROR_TAG . PHP_EOL . ERROR_TAG . 'LLM API call returned error.' . PHP_EOL;
             return false;
         }
         try {
@@ -364,7 +366,7 @@ final class LanguageTransformer
     {
         echo '[INFO] Submitting ' . ANSI_LIGHT_CYAN . $this->toLanguage . ANSI_RESET
             . ' solutions to Codingame...' . PHP_EOL;
-        // ...
+        // TODO submit all solutions after fixing issue with single submit
         $this->submitSolution('easy_com_seeing-squares');
         return true;
     }
@@ -384,7 +386,9 @@ final class LanguageTransformer
                 . (count($puzzles) > 1 ? 's' : '') . '.' . PHP_EOL;
             echo '[INFO] Converting ' . ANSI_LIGHT_CYAN . $this->fromLanguage . ANSI_RESET
                 . ' code to ' . ANSI_LIGHT_CYAN . $this->toLanguage . ANSI_RESET
-                . ', using OpenAI model: ' . ANSI_LIGHT_CYAN . $this->openaiModel . ANSI_RESET . PHP_EOL;
+                . ', using '
+                . ANSI_LIGHT_CYAN . 'OpenAI' . ANSI_RESET
+                . ' model: ' . ANSI_LIGHT_CYAN . $this->openaiModel . ANSI_RESET . PHP_EOL;
         }
         $count_converted = 0;
         foreach ($puzzles as $puzzle) {
@@ -559,10 +563,13 @@ final class LanguageTransformer
         echo 'Usage:' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  php src/cg-ai.php' . ANSI_RESET . ' [arguments]' . PHP_EOL
             . 'Arguments:' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: php]' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: rust]' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --from=' . ANSI_RESET . 'LANG    set input language  [default: '
+                . ANSI_GREEN . 'php' . ANSI_RESET . ']' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --to=' . ANSI_RESET . 'LANG      set output language [default: '
+                . ANSI_GREEN . 'rust' . ANSI_RESET . ']' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --list' . ANSI_RESET . '         generate puzzle names list' . PHP_EOL
-            . ANSI_LIGHT_CYAN . '  --submit' . ANSI_RESET . '       submit puzzle solutions to CG site' . PHP_EOL
+            . ANSI_LIGHT_CYAN . '  --submit' . ANSI_RESET . '       submit puzzle solutions to CG site '
+                . ANSI_YELLOW . '[WIP, NOT WORKING]' . ANSI_RESET . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --test' . ANSI_RESET . '         run cgtest only' . PHP_EOL
             . ANSI_LIGHT_CYAN . '  --help' . ANSI_RESET . '         show this help' . PHP_EOL
             . 'Supported languages:' . PHP_EOL
