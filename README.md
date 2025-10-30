@@ -8,7 +8,7 @@ by [TBali](https://www.codingame.com/profile/08e6e13d9f7cad047d86ec4d10c77750015
 
 ## About
 
-This is a simple tool I used for an AI experiment. I checked how good are current LLMs (e.g. gpt-5) to convert code from one programming language to another. I used it to convert my existing, manual Codingame puzzle solutions in PHP to Rust.
+This is a simple tool I used for an AI experiment in September-October 2025. I checked how good are current LLMs (e.g. gpt-5) to convert code from one programming language to another. I used it to convert my existing, manual Codingame puzzle solutions in PHP to Rust.
 It uses OpenAI REST API for the conversion and my other CG-related tool for local testing of the results.
 
 Note: the tool does not send the puzzle statement as part of the prompt, only the original solution source code.
@@ -17,8 +17,8 @@ Note: the tool does not send the puzzle statement as part of the prompt, only th
 
 * install `php` and [Composer](https://getcomposer.org/)
 * run `composer install`
-* lint with `composer qa` as needed
-    * tools are NOT listed in `composer.json` as dev dependencies. Instead, the commands must be available in the `PATH`.
+* optional: lint with `composer qa` as needed
+    * PHP dev tools (phpcs, php-cs-fixer, phpstan), are NOT listed in `composer.json` as dev dependencies. Instead, the commands must be available in the `PATH`.
 * copy `.env.example` to `.env`
 * edit `.env`, add your OpenAI API key
 * copy your php puzzle solution source files to `php/`, follow the naming convention.
@@ -67,12 +67,24 @@ Results of using the tool to AI-translate my own puzzle solutions (originally wr
     * with build failure: 42
     * with partial test failure: 23
         * most test failures could be fixed manually by small changes.
+    * submitted to CG: 647 (I had 166 puzzles with manual translations already submitted earlier)
 
 * overall success rate (after some manual fixes): ~93%
 
-## Internal note
+* OpenAI usage
+    * spending: ~17€ (could have been less if starting with `gpt-5-mini` for easy puzzles)
+    * 913 requests
+    * 961K input tokens
+    * 2929K output tokens
 
-TODO: What is the correct way to submit a puzzle solution to Codingame without using the UI, through API? What I tried but still not working:
+## TODOs
+
+* Add support and test with local run of Ollama open source models (e-g- Gemma3)
+* Fix the `--submit` functionality
+
+### Internal note
+
+What is the correct way to submit a puzzle solution to Codingame without using the UI, through API? What I tried but still not working:
 
 * (1) Sending POST to `https://www.codingame.com/services/Puzzle/generateSessionFromPuzzlePrettyId` with request body `[my-numeric-userid, "puzzle-name", false]`, and with cookies `cgSession` and `godfatherId` set. The response should have a `handle` element to use in next step.
 * (2) Sending POST to `https://www.codingame.com/services/TestSession/submit` with request body `["handle", {"code": "my-source-code", "programmingLanguageId": "python-or-whatever"}, null]`. Response should be a _report-id_ for next step.
